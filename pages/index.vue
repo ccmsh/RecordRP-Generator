@@ -125,18 +125,23 @@ export default {
 
             if (file.name.endsWith('.mp3') || file.name.endsWith('.wav')) {
                 this.converting[record] = true;
-                const { FFmpeg } = await import('@ffmpeg/ffmpeg');
-                const { fetchFile, toBlobURL } = await import('@ffmpeg/util');
-                const ffmpeg = new FFmpeg();
-                const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd'
-                await ffmpeg.load({
-                    coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-                    wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-                });
-                await ffmpeg.writeFile(file.name, await fetchFile(file));
-                await ffmpeg.exec(['-i', file.name, 'output.ogg']);
-                const data = await ffmpeg.readFile('output.ogg');
-                this.uploadedFiles[record] = new File([data.buffer], `${record}.ogg`, { type: 'audio/ogg' });
+                if (process.client) { // クライアントサイドでのみ実行
+                    const { FFmpeg } = await import('@ffmpeg/ffmpeg');
+                    const { fetchFile, toBlobURL } = await import('@ffmpeg/util');
+                    const ffmpeg = new FFmpeg();
+                    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd'
+                    await ffmpeg.load({
+                        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+                        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+                    });
+                    await ffmpeg.writeFile(file.name, await fetchFile(file));
+                    await ffmpeg.exec(['-i', file.name, 'output.ogg']);
+                    const data = await ffmpeg.readFile('output.ogg');
+                    this.uploadedFiles[record] = new File([data.buffer], `${record}.ogg`, { type: 'audio/ogg' });
+                } else {
+                    console.warn('FFmpeg conversion skipped on server-side rendering.');
+                    this.uploadedFiles[record] = null; // サーバーサイドではファイルを処理しないため、クリア
+                }
                 this.converting[record] = false;
             } else {
                 this.uploadedFiles[record] = file;
